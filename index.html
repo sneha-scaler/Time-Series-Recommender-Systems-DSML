@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TS & RS: Reading the Clock</title>
+<style>
+:root{
+  --bg:#F1E8D6; --paper:#FAF4E6; --card:#FFFBF1; --sand:#E7DBC2; --line:#D6C7A9;
+  --ink:#33291E; --muted:#66573F; --brown:#5B4330; --deep:#3B2A1C;
+  --orange:#B8530F; --orange-ink:#9C4509; --orange-btn:#A84A0B; --orange-2:#D9792B; --amber:#E3A94B; --tint:#F5DDBD; --tint-2:#FBEBD3; --rust:#8A3410;
+  --radius:14px; --shadow:0 1px 2px rgba(59,42,28,.08),0 6px 18px rgba(59,42,28,.06);
+  --serif:Georgia,"Iowan Old Style","Palatino Linotype",Palatino,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.7}
+a{color:var(--orange-ink)}
+:focus-visible{outline:3px solid var(--orange-2);outline-offset:2px;border-radius:4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* top nav */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(250,244,230,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.topbar nav{max-width:1080px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:8px 16px;scrollbar-width:thin}
+.topbar a{white-space:nowrap;text-decoration:none;color:var(--muted);font-size:14px;font-weight:600;padding:6px 12px;border-radius:999px}
+.topbar a:hover{background:var(--tint-2);color:var(--orange-ink)}
+.topbar a.active{background:var(--orange-btn);color:#fff}
+.progress{height:3px;background:transparent}
+.progress i{display:block;height:100%;width:0;background:var(--orange-2)}
+
+/* hero */
+.hero{background:var(--deep);color:#F3E7D0;padding:72px 20px 64px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-120px;top:-120px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(217,121,43,.35),rgba(217,121,43,0) 70%)}
+.hero .wrap{max-width:860px;margin:0 auto;position:relative;z-index:1}
+.eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);font-weight:700}
+.hero h1{font-family:var(--serif);font-size:clamp(32px,5.4vw,54px);line-height:1.12;margin:12px 0 18px;font-weight:700;color:#FFF6E4}
+.hero p{font-size:19px;max-width:700px;color:#E6D6B8;margin:0 0 22px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid rgba(243,231,208,.35);border-radius:999px;padding:4px 14px;font-size:14px;color:#F3E7D0}
+
+/* layout */
+main{max-width:860px;margin:0 auto;padding:12px 20px 60px}
+section{padding-top:48px}
+section>h2{font-family:var(--serif);font-size:clamp(26px,3.6vw,34px);line-height:1.2;margin:0 0 6px;color:var(--deep)}
+.kicker{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange-ink)}
+h3{font-family:var(--serif);font-size:22px;margin:34px 0 8px;color:var(--deep)}
+h4{margin:20px 0 6px;font-size:17px;color:var(--brown)}
+p{margin:0 0 14px}
+ul,ol{padding-left:22px;margin:0 0 14px}
+li{margin-bottom:6px}
+code{font-family:var(--mono);font-size:.88em;background:var(--sand);padding:1px 6px;border-radius:5px}
+pre{background:#2F2217;color:#F2E5CC;border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:14px;line-height:1.55;margin:10px 0 14px}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+pre.out{background:var(--sand);color:var(--ink);border-left:4px solid var(--orange-2);border-radius:6px;margin-top:-6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);margin:18px 0}
+.card>h4:first-child,.card>.ct{margin-top:0}
+.ct{font-weight:700;color:var(--deep);font-size:16px;margin-bottom:4px}
+.sub{color:var(--muted);font-size:15px;margin-bottom:12px}
+.viz{border-top:5px solid var(--orange-2)}
+.viz .tag{display:inline-block;background:var(--tint);color:var(--rust);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 10px;border-radius:999px;margin-bottom:8px}
+.callout{background:var(--tint-2);border-left:5px solid var(--orange);border-radius:8px;padding:14px 18px;margin:18px 0}
+.callout b.h{display:block;color:var(--rust);font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px}
+.callout.note{background:var(--sand);border-left-color:var(--brown)}
+.callout.note b.h{color:var(--brown)}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}body{font-size:16px}}
+.mini{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.mini b{display:block;color:var(--deep);margin-bottom:2px}
+.mini .big{font-family:var(--serif);font-size:28px;color:var(--orange-ink);line-height:1.1}
+
+/* controls */
+button,.btn{font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-radius:999px;border:1.5px solid var(--orange-btn);background:var(--card);color:var(--orange-ink);padding:6px 16px}
+button:hover{background:var(--tint-2)}
+button[aria-pressed="true"],button.on{background:var(--orange-btn);color:#fff}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+label{font-size:14px;font-weight:600;color:var(--brown)}
+input[type=range]{width:100%;accent-color:var(--orange-btn)}
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 18px;margin-bottom:12px}
+.ctrl output{font-family:var(--mono);color:var(--orange-ink);font-weight:700}
+.chk{display:flex;gap:8px;align-items:center;font-size:15px;cursor:pointer}
+.chk input{accent-color:var(--orange-btn);width:18px;height:18px}
+
+/* tables */
+.tw{overflow-x:auto;margin:10px 0 14px}
+table{border-collapse:collapse;width:100%;font-size:15px;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+th{background:var(--sand);color:var(--deep);font-size:14px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.hl td{background:var(--tint-2)}
+
+/* bars */
+.bar{display:grid;grid-template-columns:150px 1fr 90px;gap:10px;align-items:center;margin:8px 0;font-size:15px}
+.bar .track{background:var(--sand);border-radius:6px;height:26px;overflow:hidden}
+.bar .fill{height:100%;border-radius:6px;transition:width .35s}
+.bar .v{font-variant-numeric:tabular-nums;font-weight:700;text-align:right}
+@media(max-width:560px){.bar{grid-template-columns:1fr;gap:2px}.bar .v{text-align:left}}
+
+/* calendar grid */
+.cal{display:grid;grid-template-columns:42px repeat(12,minmax(0,1fr));gap:3px;font-size:11px;max-width:620px}
+.cal .hd,.cal .yr{color:var(--muted);font-weight:700;text-align:center;line-height:20px}
+.cal .yr{text-align:right;padding-right:4px}
+.cal .c{height:20px;border-radius:4px;background:var(--sand);border:1px solid var(--line);text-align:center;line-height:17px;color:var(--brown);font-size:11px}
+.cal .c.empty{background:repeating-linear-gradient(45deg,var(--orange-2) 0 3px,var(--tint) 3px 6px);border-color:var(--orange);color:var(--rust)}
+.cal .c.absent{background:transparent;border:1.5px dashed var(--rust);color:var(--rust);font-weight:700}
+.cal .c.blank{visibility:hidden}
+.cal .cnt{height:46px;display:flex;align-items:flex-end;justify-content:center}
+.cal .cnt i{display:block;width:100%;background:var(--orange);border-radius:3px 3px 0 0;position:relative}
+.cal .cnt i.top{background:var(--rust)}
+.cal .cn{text-align:center;font-weight:700;color:var(--deep);font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin:10px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:18px;height:14px;border-radius:3px;background:var(--sand);border:1px solid var(--line)}
+.sw.empty{background:repeating-linear-gradient(45deg,var(--orange-2) 0 3px,var(--tint) 3px 6px);border-color:var(--orange)}
+.sw.absent{background:transparent;border:1.5px dashed var(--rust)}
+
+svg text{font-family:var(--sans)}
+svg{max-width:100%;height:auto;display:block}
+.mrow{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin:10px 0}
+.mrow div{border:1px solid var(--line);border-radius:6px;text-align:center;padding:8px 0;font-size:13px;font-weight:700;background:var(--sand);color:var(--brown)}
+.mrow .dip{background:var(--card);border:2px dashed var(--brown)}
+.mrow .peak{background:var(--orange-btn);color:#fff;border-color:var(--rust)}
+
+/* steps */
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.steps button{border-radius:10px}
+.stepbody{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+
+/* quiz */
+.quiz{border-left:6px solid var(--orange)}
+.quiz .q{font-weight:600;margin-bottom:10px}
+.opt{display:block;width:100%;text-align:left;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;margin:6px 0;font-weight:500}
+.opt:hover{border-color:var(--orange-2);background:var(--tint-2)}
+.opt.right{background:var(--orange-btn);color:#fff;border-color:var(--rust)}
+.opt.wrong{border:2px dashed var(--rust);background:var(--paper)}
+.quiz .fb{display:none;margin-top:10px;background:var(--sand);border-radius:8px;padding:10px 14px;font-size:15px}
+.quiz .fb.show{display:block}
+details{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0}
+summary{cursor:pointer;padding:12px 18px;font-weight:700;color:var(--deep);list-style:none;display:flex;justify-content:space-between;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--orange-ink);font-size:20px;line-height:1}
+details[open] summary::after{content:"–"}
+details .dbody{padding:0 18px 14px}
+details pre{margin-top:0}
+
+footer{background:var(--deep);color:#D9C7A4;text-align:center;padding:28px 20px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="topbar" role="banner">
+  <nav aria-label="Sections">
+    <a href="#case">Business case</a>
+    <a href="#ts">Time series</a>
+    <a href="#index">Index &amp; completeness</a>
+    <a href="#missing">Missing values</a>
+    <a href="#anomalies">Anomalies</a>
+    <a href="#patterns">Reading the plot</a>
+    <a href="#horizon">Horizon &amp; frequency</a>
+    <a href="#pipeline">One function</a>
+    <a href="#recap">Recap</a>
+  </nav>
+  <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Time Series &amp; Recommender System · Class 1</div>
+    <h1>Reading the Clock - Turning Raw Timestamps into Forecast-Ready Data</h1>
+    <p>What a time series is, why forecasting differs from regression, and how to turn a raw monthly sales sheet into clean, forecast-ready data.</p>
+    <div class="chips"><span class="chip">Case: MobiPlus</span><span class="chip">Monthly sales, Jan 2001 – Jan 2019</span><span class="chip">Python · pandas</span></div>
+  </div>
+</header>
+
+<main>
+
+<section id="intro" style="padding-top:36px">
+  <div class="callout note"><b class="h">About the data</b>
+  The data is simulated for teaching. The numbers are not real MobiPlus figures, but they carry the same problems the real sheet had: missing months and two anomalies. Code snippets below use <code>pandas</code>; the series is called <code>Sales</code> and the date column <code>DATE</code>.</div>
+</section>
+
+<!-- 1 BUSINESS CASE -->
+<section id="case">
+  <div class="kicker">1 · Business case</div>
+  <h2>Planning December with dirty data</h2>
+  <p>You are the data scientist at MobiPlus, a mobile phone manufacturer. Before the planning meeting the factory head asks one question: <b>"How many phones should we build for December 2018?"</b> The only thing you have is the monthly sales sheet, loaded with <code>pd.read_excel("mobilesales.xlsx")</code>.</p>
+
+  <div class="card viz"><span class="tag">Visualizer · issue map</span>
+    <div class="ct">What is wrong with the sheet as received?</div>
+    <div class="sub">Each month from Jan 2001 to Jan 2019 is a position on the line. Hover or focus a marker to read it.</div>
+    <div id="issuemap"></div>
+    <div id="issuecap" class="sub" aria-live="polite" style="min-height:26px"></div>
+    <p style="margin:0">Three things stand out before any model is built: <b>months with no value</b> (gaps in the line), <b>one month that crashes to almost zero</b> around 2006, and <b>one month that spikes far above everything else</b> around 2013. Sales also rise over time and peaks repeat; we return to those in the "Reading the plot" section.</p>
+  </div>
+
+  <h3>The cost of planning from the average</h3>
+  <p>A first instinct is to plan December at the all-time average. Here is how that plan would have performed.</p>
+  <div class="card viz"><span class="tag">Visualizer · plan vs actual</span>
+    <div class="bar"><span>Plan (all-time average)</span><div class="track"><div class="fill" style="width:64.1%;background:var(--amber)"></div></div><span class="v">10,854</span></div>
+    <div class="bar"><span>Actual, Dec 2018</span><div class="track"><div class="fill" style="width:100%;background:var(--orange)"></div></div><span class="v">16,921</span></div>
+    <div class="bar"><span>Unserved demand</span><div class="track"><div class="fill" style="width:35.9%;background:var(--rust)"></div></div><span class="v">6,067</span></div>
+    <p class="sub" style="margin:8px 0 0">More than a third (36%) of December demand would have gone unserved, and the average itself was pulled around by the dirty months.</p>
+  </div>
+<pre><code>plan_from_average = raw.Sales.mean()
+actual_dec_2018 = raw.loc[raw.DATE == "2018-12-01", "Sales"].iloc[0]
+shortfall = actual_dec_2018 - plan_from_average</code></pre>
+  <p>Fixing this is the job of the next few classes. Today's part is to turn the raw sheet into data a forecasting model can trust.</p>
+
+  <h3>What MobiPlus wants from the project</h3>
+  <div class="grid3">
+    <div class="mini"><b>Goal 1 · Understand patterns</b>Know how demand behaves so factory maintenance and staffing can be planned around it.</div>
+    <div class="mini"><b>Goal 2 · Hit an accuracy bar</b>A Mean Absolute Percentage Error (MAPE) of at most <span style="color:var(--orange-ink);font-weight:700">5%</span>.</div>
+    <div class="mini"><b>Goal 3 · A range, not just a point</b>A range forecast next to the point forecast lets the business make trade-offs.</div>
+  </div>
+
+  <h3>Why a wrong forecast costs money</h3>
+  <p>A forecast lets MobiPlus plan production, hiring, purchasing, discounts, marketing and maintenance. In peak seasons the company may also run deals to promote the brand.</p>
+  <div class="grid2">
+    <div class="mini"><b>Over-forecast</b>Phones pile up in the warehouse and holding cost rises. In a fast-moving phone market older models become outdated; at MobiPlus about 30% of unsold phones end up scrapped.</div>
+    <div class="mini"><b>Under-forecast</b>Demand goes unmet, revenue is lost and loyal customers lose goodwill. This loss is quiet, because nobody sees the sales that did not happen.</div>
+  </div>
+
+  <div class="card viz"><span class="tag">Visualizer · cost of a miss</span>
+    <div class="ct">Price two mistakes of the same size</div>
+    <div class="sub">Classroom assumptions, not MobiPlus data. Defaults reproduce the lesson: a 5,000-phone miss either way.</div>
+    <div class="ctrl">
+      <div><label for="c_miss">Forecast miss (phones): <output id="o_miss"></output></label><input id="c_miss" type="range" min="1000" max="10000" step="500" value="5000"></div>
+      <div><label for="c_margin">Profit lost per unsold-demand phone ($): <output id="o_margin"></output></label><input id="c_margin" type="range" min="10" max="100" step="5" value="40"></div>
+      <div><label for="c_hold">Holding cost per unsold phone ($): <output id="o_hold"></output></label><input id="c_hold" type="range" min="0" max="20" step="1" value="6"></div>
+      <div><label for="c_prod">Production cost per phone ($): <output id="o_prod"></output></label><input id="c_prod" type="range" min="50" max="400" step="10" value="180"></div>
+      <div><label for="c_scrap">Share of unsold phones scrapped: <output id="o_scrap"></output></label><input id="c_scrap" type="range" min="0" max="1" step="0.05" value="0.3"></div>
+    </div>
+    <div id="costbars"></div>
+    <p class="sub" style="margin:8px 0 0">Under the default assumptions over-forecasting costs more in direct cost, while the goodwill damage from under-forecasting is not counted at all.</p>
+  </div>
+<pre><code>over_cost  = miss * holding_cost_per_phone + miss * scrap_share * production_cost_per_phone
+under_cost = miss * margin_per_phone</code></pre>
+  <div class="callout"><b class="h">Important</b>These numbers only illustrate that the two mistakes have different prices. A forecast is judged by what its errors cost the business, not only by how small the errors are.</div>
+</section>
+
+<!-- 2 TIME SERIES -->
+<section id="ts">
+  <div class="kicker">2 · Foundations</div>
+  <h2>What a time series is</h2>
+  <p>A <b>time series</b> is a signal indexed by an ordered timestamp. To qualify you need at least two things:</p>
+  <div class="grid2">
+    <div class="mini"><b>𝑡 · a date or timestamp</b>Seconds, days, weeks, months or years.</div>
+    <div class="mini"><b>𝑦 · one quantity measured at that time</b>Sales, revenue, inventory.</div>
+  </div>
+  <p style="margin-top:14px">A <b>signal</b> is a series of numbers, ordered by the time they were recorded, that all represent the same physical quantity. Think of a heart monitor: the same quantity, recorded again and again, in order. Monthly phone sales fit exactly the same description.</p>
+  <div class="tw"><table>
+    <tr><th>Example</th><th>𝑦</th><th>𝑡</th></tr>
+    <tr><td>NIFTY stock prices</td><td>the price</td><td>daily</td></tr>
+    <tr><td>Population growth rate of a country</td><td>the rate</td><td>yearly</td></tr>
+    <tr><td>Container port traffic</td><td>the traffic</td><td>yearly</td></tr>
+    <tr><td>GDP growth</td><td>GDP for the quarter</td><td>quarterly</td></tr>
+  </table></div>
+
+  <h3>Forecasting vs regression and classification</h3>
+  <p>Forecasting is analysing history to predict future values. Given values up to now, 𝑥₁, 𝑥₂, …, 𝑥ₜ, we need 𝑥ₜ₊₁, 𝑥ₜ₊₂, …</p>
+  <div class="card viz"><span class="tag">Visualizer · compare</span>
+    <div class="btnrow" role="group" aria-label="Choose a problem type">
+      <button id="cmp_reg" aria-pressed="true">Regression / classification</button>
+      <button id="cmp_fc" aria-pressed="false">Forecasting</button>
+    </div>
+    <div class="tw"><table>
+      <tr><th></th><th id="cmp_h">Regression / classification</th></tr>
+      <tr><th>What we have</th><td id="cmp_1"></td></tr>
+      <tr><th>What we predict</th><td id="cmp_2"></td></tr>
+      <tr><th>Where inputs come from</th><td id="cmp_3"></td></tr>
+      <tr><th>Row order</th><td id="cmp_4"></td></tr>
+    </table></div>
+    <p id="cmp_an" class="sub" style="margin:0"></p>
+  </div>
+
+  <p>Forecasting is still a supervised problem, and since it predicts real numbers it feels closer to regression than to classification. The twist: each month is lined up against the month before it.</p>
+  <div class="card viz"><span class="tag">Visualizer · lag table</span>
+    <div class="ct">Turn one column into a regression-style table</div>
+    <div class="sub">Shifting the series one step pairs "last month" with "this month". Now shuffle the rows and watch the pairing break. Symbols stand for six consecutive months.</div>
+    <div class="btnrow"><button id="lag_shuf">Shuffle rows</button><button id="lag_reset">Restore time order</button></div>
+    <div class="tw"><table id="lagtab"></table></div>
+    <p id="lagmsg" class="sub" aria-live="polite" style="margin:0"></p>
+  </div>
+<pre><code>lag_view = pd.DataFrame({"Last month (x)": first_months.shift(1),
+                         "This month (y)": first_months})</code></pre>
+  <p>The first row has no "last month" because the series starts there, a small preview of the missing-value theme later in this class.</p>
+  <p><b>Can outside information such as marketing spend or holidays be inputs too?</b> Yes. Later classes add such extra signals. For now the series' own history is enough to learn the patterns, and any added input must also be known for the future dates we want to forecast.</p>
+
+  <div class="card quiz" data-quiz='{"q":"In a forecasting problem such as MobiPlus sales, where do the inputs used to predict next month&apos;s value mostly come from?","o":["A separate sheet of external features such as the marketing budget","The series&apos; own earlier values, such as last month&apos;s sales figure","A randomly shuffled sample of months drawn from the full history","Output labels produced by a separate classification model"],"a":1,"e":"A forecasting problem works from one signal, so the usable inputs are the earlier values of that same signal, as the lag table showed. External features can be added later but are not what makes a series a forecasting problem, and they must be known for future dates too (A). Shuffling destroys the time order, which is the one thing a forecast depends on (C). Classification labels are categories, while forecasting predicts real-valued numbers from past values (D)."}'></div>
+</section>
+
+<!-- 3 INDEX -->
+<section id="index">
+  <div class="kicker">3 · Preparing the data</div>
+  <h2>Datetime index, completeness and the first plot</h2>
+  <h3>The date column must be a real datetime</h3>
+  <p>Pandas offers many built-in tools for datetime values: slicing by year or month, resampling, shifting and clean plotting. A date stored as plain text gives none of these. The Excel file gave us <code>datetime64</code> automatically. A CSV stores everything as text, so the same data read from CSV arrives with <code>DATE</code> as plain text (shown as <code>str</code> in recent pandas, <code>object</code> in older versions). The fix is a single call.</p>
+<pre><code>from_csv = pd.read_csv("mobilesales.csv")          # DATE is text
+from_csv["DATE"] = pd.to_datetime(from_csv["DATE"])  # DATE is datetime64</code></pre>
+
+  <h3>Completeness check: do we have every month?</h3>
+  <p>The data runs from January 2001 to January 2019: 18 full years plus one extra month, so the expected row count is <code>18*12 + 1 = 217</code>. The sheet has 217 rows and 217 unique dates, so no month is absent from the calendar.</p>
+  <div class="callout"><b class="h">Two different problems</b>A month can be <b>absent</b> (the row is not there at all) or <b>present with an empty value</b>. The completeness check finds the first kind; the next section deals with the second.</div>
+  <p>Models assume every step is equally spaced. If February is followed directly by May, the model does not know that two months vanished and will learn the wrong thing.</p>
+
+  <div class="card viz"><span class="tag">Visualizer · calendar audit</span>
+    <div class="ct">Every month of the sheet, 2001 – 2019</div>
+    <div class="sub">Toggle to see the difference between an absent month and an empty value.</div>
+    <label class="chk"><input type="checkbox" id="g_drop"> Remove March and April 2010 from the sheet (as in the demo)</label>
+    <label class="chk" style="margin-bottom:12px"><input type="checkbox" id="g_empty"> Mark the 19 months that exist but have an empty value</label>
+    <div id="grid1" class="cal" role="img" aria-label="Calendar of months from January 2001 to January 2019 showing which months are present, empty or absent"></div>
+    <div class="legend"><span><i class="sw"></i>present</span><span><i class="sw empty"></i>present, value empty</span><span><i class="sw absent"></i>absent (no row)</span></div>
+    <div id="g_out" aria-live="polite" class="sub" style="margin:0"></div>
+  </div>
+<pre><code>full_calendar = pd.date_range(mobile_sales.DATE.min(), mobile_sales.DATE.max(), freq="MS")
+absent = full_calendar.difference(pd.DatetimeIndex(broken.DATE))
+# -> ['2010-03', '2010-04']</code></pre>
+  <p><code>pd.date_range</code> with <code>freq="MS"</code> builds the full month-start calendar, and <code>difference</code> reveals exactly which dates are absent. It is a one-line audit worth running on every new dataset.</p>
+
+  <h3>Use the dates as the index</h3>
+  <p>Dates are unique, and a datetime index unlocks slicing by date text: <code>mobile_sales.loc["2018-09":"2019-01"]</code> just works, plots label the x-axis with real dates automatically, and later steps such as <code>rolling()</code> and <code>resample()</code> expect time to be the index. With the default 0, 1, 2 index you would do extra work for the same result.</p>
+<pre><code>mobile_sales = mobile_sales.set_index("DATE")
+mobile_sales.Sales.plot(title="Monthly sales with a datetime index")</code></pre>
+  <p>The gaps, the dip and the spike from the opening are all still visible, now on a proper time axis. Which to fix first? Either order can be justified. Ours is <b>gaps first, then dip and spike</b>, because filling the gaps gives a complete series on which the percentile cut-offs for the anomalies can be computed cleanly.</p>
+
+  <div class="card quiz" data-quiz='{"q":"A monthly sales file is expected to cover 2005 to 2022 (216 rows) but contains only 213 unique dates. What does this most likely indicate, and what is the right next step?","o":["The model auto-handles gaps, so train on the 213 rows directly","The data must be daily, so resample the dates to the day level","The dtype is wrong, so converting dates to plain numbers fixes it","Three months are absent, so build the full index and list them"],"a":3,"e":"216 minus 213 leaves three missing calendar months, and pd.date_range with difference pinpoints which ones so they can be fixed before modelling. Most forecasting methods assume equally spaced steps, so silently skipping months makes the model learn the wrong spacing (A). The file is stated to be monthly, so the mismatch is a count problem and not a frequency problem (B). Dtype and row count are unrelated: a correct datetime column can still have absent months, and turning dates into numbers does not restore them (C)."}'></div>
+</section>
+
+<!-- 4 MISSING -->
+<section id="missing">
+  <div class="kicker">4 · Cleaning</div>
+  <h2>Missing values</h2>
+  <p>The completeness check passed, yet the plot still shows gaps. Those are months that exist in the calendar but carry no sales value. The plan: <b>find</b> where values are missing, <b>check</b> whether the gaps follow a pattern, and <b>fill</b> them with the most appropriate value.</p>
+
+  <h3>Where are they, and is there a pattern?</h3>
+  <p>If all gaps fell on the same calendar month, for example every December, that would be a story worth chasing. The grid's bottom row counts the gaps per calendar month.</p>
+  <div class="card viz"><span class="tag">Visualizer · gap map</span>
+    <div id="grid2" class="cal" role="img" aria-label="Calendar of months with the 19 empty months highlighted and a count of gaps per calendar month underneath"></div>
+    <div class="legend"><span><i class="sw"></i>value present</span><span><i class="sw empty"></i>value missing</span></div>
+    <p class="sub" style="margin:0">19 months are missing, scattered across the calendar. April has the most with 4 of the 19, and no month dominates. There is no visible pattern, so a standard fill is safe. (A pattern would have been handled differently.)</p>
+  </div>
+
+  <h3>Why not simply drop the rows?</h3>
+  <p>Dropping a row removes its date too, so the series is no longer equally spaced. Look at the gap between consecutive remaining months.</p>
+  <div class="card viz"><span class="tag">Visualizer · spacing after dropping</span>
+    <div class="sub">Months between each pair of consecutive surviving rows. A value of 1 is a normal step.</div>
+    <div id="gapbars"></div>
+    <p class="sub" style="margin:8px 0 0">The 2s, 3s and the single 4 are places where a model would see up to four months as "one step". Dropping creates the irregular spacing we just warned about, so we fill instead.</p>
+  </div>
+
+  <h3>Four ways to fill, compared</h3>
+  <h4>Mean or median</h4>
+  <p>The simplest idea is one number for the whole series, like guessing a missing exam score with the class average. The mean is 10,854.2 and the median 10,832.0, so either gives a similar result. The problem: in 2002 sales were roughly 6,000 to 7,500, yet the 18-year mean sits near 10,900, so the filled line spikes up for three months and then crashes back. A phone line does not jump by 4,000 units and fall back in a quarter. In the middle years the mean happens to look natural, but only because that stretch sits near the overall average; later, once sales have outgrown the mean, the filled points sit too low.</p>
+  <h4>Zero</h4>
+  <p>Zero is valid in some businesses: for daily store data, a closed Sunday really is zero sales, and in industry you confirm this with the client who owns the data. For monthly phone sales a zero would imply the company sold nothing.</p>
+  <h4>Linear interpolation</h4>
+  <p>Fill each gap using its own neighbours. For a single missing month, take the average of the month before and after. For a longer gap, join the last known point before it and the first known point after it with a straight line. If you were at kilometre 10 at 9 am and kilometre 16 at noon, a fair guess for 10:30 am is kilometre 11: you use nearby readings, not your average position across the year.</p>
+
+  <div class="card viz"><span class="tag">Visualizer · fill explorer</span>
+    <div class="ct">One gap, three fills</div>
+    <div class="sub">Illustrative neighbours (defaults sit in the 2002 range of roughly 6,000 to 7,500). The global mean is the lesson's 10,854.2.</div>
+    <div class="ctrl">
+      <div><label for="f_a">Last known value before the gap: <output id="of_a"></output></label><input id="f_a" type="range" min="4000" max="9000" step="100" value="6400"></div>
+      <div><label for="f_b">First known value after the gap: <output id="of_b"></output></label><input id="f_b" type="range" min="4000" max="9000" step="100" value="7200"></div>
+      <div><label for="f_g">Months missing in a row: <output id="of_g"></output></label><input id="f_g" type="range" min="1" max="3" step="1" value="3"></div>
+    </div>
+    <div id="fillsvg"></div>
+    <div class="tw"><table id="filltab"></table></div>
+    <p id="fillmsg" class="sub" aria-live="polite" style="margin:0"></p>
+  </div>
+<pre><code>filled_mean   = mobile_sales.Sales.fillna(mean_val)
+filled_zero   = mobile_sales.Sales.fillna(0)
+filled_linear = mobile_sales.Sales.interpolate(method="linear")
+
+# a single gap (April 2007) is exactly the average of its two neighbours
+(march_2007 + may_2007) / 2          # 9436.0
+filled_linear["2007-04-01"]          # 9436.0</code></pre>
+
+  <h3>Grade the fills: hide and recover</h3>
+  <p>Plots are a good first check, but we can also score the fills. In a real project the true values of missing months are unknown, so use a <b>hide-and-recover test</b>: hide 19 months that we do know from a calm stretch of history (2007 to 2012), fill them with each method, and measure how far each fill lands from the real value.</p>
+  <div class="card viz"><span class="tag">Visualizer · scoreboard</span>
+    <div class="sub">Ranking by average miss per hidden month (lower is better). The notebook reports exact figures; this view shows the order and the stated relationships only.</div>
+    <ol id="rank" style="list-style:none;padding:0;margin:0"></ol>
+  </div>
+<pre><code>test_series[hidden_months] = np.nan
+fills = {"mean": ..., "median": ..., "zero": ..., "linear interpolation": ...}
+scoreboard = pd.Series({name: (s[hidden_months] - real_values).abs().mean()
+                        for name, s in fills.items()})</code></pre>
+  <p>Linear interpolation lands closest, missing by roughly half as much as the mean and median, and zero is by far the worst. This is a habit worth keeping: <b>when you cannot see the truth, hide part of what you do know and test your method on it.</b></p>
+  <div class="callout"><b class="h">Looking ahead</b>Interpolation with one neighbour on each side is the simplest case of a centered moving average. In Class 2 we widen the window and see how the same idea becomes smoothing and trend estimation.</div>
+  <p>The interpolated series becomes the working copy: <code>mobile_sales["Sales"] = mobile_sales.Sales.interpolate(method="linear")</code>, leaving 0 missing values.</p>
+
+  <div class="card quiz" data-quiz='{"q":"Why is filling the 2002 gap with the overall 18-year mean a poor choice for this series?","o":["It ignores the local level, so filled points jump from neighbours","It cannot be computed because Sales already contains empty entries","It changes the datetime index, which breaks later rolling windows","It always lowers the overall average of the whole cleaned series"],"a":0,"e":"Sales were roughly 6,000 to 7,500 in 2002 while the 18-year mean sits near 10,900, so the filled months form an artificial spike that rises and falls around the gap. Pandas skips empty entries when computing a mean, as the mean we calculated shows (B). fillna only fills values and leaves the index untouched (C). Filling gaps with the mean leaves the overall mean unchanged, so nothing is lowered; the damage is local, not global (D)."}'></div>
+</section>
+
+<!-- 5 ANOMALIES -->
+<section id="anomalies">
+  <div class="kicker">5 · Cleaning</div>
+  <h2>Anomalies</h2>
+  <p>An <b>anomaly</b>, or outlier, is an unusual data point that stands out from the rest. It is either a wrong entry (for example, a month a data pipeline filled with a near-zero value) or a correct entry caused by a one-time event that will not repeat. Even a valid one-time event should usually be removed from the training data: if the model learns from an event that will not happen again, it becomes biased.</p>
+
+  <h3>Finding them</h3>
+  <p>Start with the numbers. The minimum is 108 while the 25th percentile is around 8,800, and the maximum is far above the 75th percentile.</p>
+  <div class="grid2">
+    <div class="mini"><b>Lowest three</b>
+      <table><tr><td>2006-02</td><td class="num"><b>108</b></td></tr><tr><td>2001-02</td><td class="num">4,670</td></tr><tr><td>2003-02</td><td class="num">5,892</td></tr></table></div>
+    <div class="mini"><b>Highest three</b>
+      <table><tr><td>2013-07</td><td class="num"><b>23,740</b></td></tr><tr><td>2018-12</td><td class="num">16,921</td></tr><tr><td>2017-12</td><td class="num">16,304</td></tr></table></div>
+  </div>
+  <p style="margin-top:14px">A histogram tells the same story: the bulk of the months sit in one hump and a few bars are isolated at the far ends. February 2006 (108) and July 2013 (23,740) are the two clear anomalies.</p>
+  <p>One option is a hand-picked cut: replace anything below 5,000 with 5,000 and anything above 20,000 with 20,000. It works here because the histogram has a clear gap, but with a more continuous histogram there would be no obvious place to cut.</p>
+
+  <h3>Quantile cut-offs</h3>
+  <p>A quantile rule does not depend on eyeballing. A common convention treats points below the 5th percentile or above the 95th as anomalies and caps them at those boundaries with <code>clip()</code>. The 95th percentile of 15,119.8 means only 5% of months sold more than that.</p>
+  <div class="card viz"><span class="tag">Visualizer · clipping explorer</span>
+    <div class="ct">Where do the cut-offs fall, and what do they touch?</div>
+    <div class="sub">Dots are the six extreme months listed above. Pick a rule.</div>
+    <div class="btnrow" role="group" aria-label="Cut-off rule">
+      <button data-q="p5" aria-pressed="true">5th / 95th percentile</button>
+      <button data-q="p2" aria-pressed="false">2nd / 98th percentile</button>
+      <button data-q="hand" aria-pressed="false">Hand-picked 5,000 / 20,000</button>
+    </div>
+    <div id="qsvg"></div>
+    <div class="tw"><table id="qtab"></table></div>
+    <p id="qmsg" class="sub" aria-live="polite" style="margin:0"></p>
+  </div>
+<pre><code>low_5, high_95 = sales.quantile(0.05), sales.quantile(0.95)   # 6,650.2  and 15,119.8
+low_2, high_98 = sales.quantile(0.02), sales.quantile(0.98)   # 6,082.6  and 15,692.5
+clip_2_98 = sales.clip(lower=low_2, upper=high_98)</code></pre>
+  <h4>The trade-off</h4>
+  <p>At 5th/95th, <b>22 points</b> changed. The two anomalies are gone, but many of those points are genuine early lows and genuine late highs. Widening to 2nd/98th changes only <b>10</b>: the two real anomalies (February 2006 and July 2013) plus eight genuine extremes at the very start and end of the history. No percentile setting is perfect: a wider cut-off protects genuine values but leaves more of the anomaly untouched, while a tighter one removes more anomalies and also flattens real peaks.</p>
+  <div class="callout"><b class="h">Keep it symmetric</b>Keep the percentiles symmetric unless there is a reason not to. If you move the upper bound, move the lower bound by the same amount.</div>
+  <p>Another valid approach, when you are sure a specific entry is wrong, is to mark the anomalies as missing and then interpolate them. What to avoid is leaving them empty at forecasting time, because most models need every time step present. Clipping is used here to show the percentile idea; the 2nd/98th version is applied to the working copy.</p>
+
+  <div class="card quiz" data-quiz='{"q":"You clip MobiPlus sales at the 5th and 95th percentiles, and then repeat it at the 2nd and 98th. What is the main trade-off between the two settings?","o":["Wider cut-offs remove more anomalies and never change a genuine value","Tighter cut-offs are safer because they never touch a genuine peak","Tighter cut-offs also flatten genuine early lows and late highs they catch","The percentile choice only affects the histogram and not the cleaned series"],"a":2,"e":"The 5th and 95th percentile setting changed 22 points while the 2nd and 98th setting changed only 10, and several of the extra points were genuine early lows and late highs. A wider setting catches fewer anomalies, and it still touched 8 genuine values in our run (A). The tighter setting is the one that clips real peaks, so it is the riskier choice for genuine data (B). clip() returns a new series with changed values, so the choice directly changes the cleaned data used for modelling (D)."}'></div>
+</section>
+
+<!-- 6 PATTERNS -->
+<section id="patterns">
+  <div class="kicker">6 · Reading the plot</div>
+  <h2>Trend, repeating patterns and domain meaning</h2>
+  <p>With the series clean, look at the plot again. This connects to Goal 1 of the business case. Two questions can be answered just by looking:</p>
+  <ul>
+    <li><b>Is there a trend?</b> Yes, sales rise year after year, so the brand is earning more. Average sales per year put a number on it (<code>groupby(index.year).mean()</code>).</li>
+    <li><b>Are there repeating patterns?</b> Yes, peaks and dips come back at roughly the same time every year.</li>
+  </ul>
+  <p>To see the repeating pattern, compare each month with its own year's average. A ratio above 1 means the month usually sells more than the year's average; below 1, less.</p>
+<pre><code>relative_to_year = full_years / full_years.groupby(full_years.index.year).transform("mean")
+relative_to_year.groupby(relative_to_year.index.month).mean()</code></pre>
+  <div class="card viz"><span class="tag">Visualizer · yearly rhythm</span>
+    <div class="sub">Qualitative summary of the month-by-month ratios: dipping around January and February, climbing to a peak from October to December, probably because of the festive season.</div>
+    <div id="mrow" class="mrow" role="img" aria-label="Months of the year: January and February dip, October to December peak"></div>
+    <div class="legend"><span><i class="sw" style="border:2px dashed var(--brown);background:var(--card)"></i>dip</span><span><i class="sw" style="background:var(--orange-btn)"></i>peak</span><span><i class="sw"></i>in between</span></div>
+  </div>
+  <p>What a repeating pattern means depends on the domain, and a good forecaster knows why it happens:</p>
+  <div class="grid2">
+    <div class="mini"><b>Retail store</b>Spikes on weekends, a dip on Mondays.</div>
+    <div class="mini"><b>Sweater maker</b>Peaks in December and January, a dip in the hotter months.</div>
+  </div>
+  <p style="margin-top:14px">We have not named these components formally yet. In Class 2 we separate trend, seasonality and noise and give them proper definitions. For today it is enough to notice that both exist.</p>
+</section>
+
+<!-- 7 HORIZON -->
+<section id="horizon">
+  <div class="kicker">7 · Framing the forecast</div>
+  <h2>Forecast horizon, frequency and who consumes the forecast</h2>
+  <p>Two settings decide what kind of forecast is being asked for, and they should be agreed before any model is built.</p>
+  <div class="grid2">
+    <div class="mini"><b>Frequency</b>How often the series has a value: daily, weekly, monthly. Ours is monthly.</div>
+    <div class="mini"><b>Horizon (ℎ)</b>How many steps into the future we forecast. ℎ = 12 on a monthly series means the next 12 months.</div>
+  </div>
+
+  <h3>Frequencies in pandas</h3>
+  <div class="card viz"><span class="tag">Visualizer · alias explorer</span>
+    <div class="sub"><code>pd.date_range("2019-02-01", periods=3, freq=alias)</code> — pick an alias.</div>
+    <div class="btnrow" role="group" aria-label="Frequency alias"><button data-al="D" aria-pressed="false">D · day</button><button data-al="W" aria-pressed="false">W · week</button><button data-al="MS" aria-pressed="true">MS · month start</button></div>
+    <div id="alout" style="display:flex;gap:10px;flex-wrap:wrap" aria-live="polite"></div>
+    <p class="sub" style="margin:10px 0 0"><code>MS</code> means month start, which matches our data.</p>
+  </div>
+
+  <h3>Rolling up is easy, going finer is not</h3>
+  <p>A finer series can be rolled up into a coarser one: monthly sales sum into quarterly or yearly sales with <code>resample("QS").sum()</code> or <code>resample("YS").sum()</code>.</p>
+  <div class="card viz"><span class="tag">Visualizer · resampling</span>
+    <div class="btnrow" role="group" aria-label="Direction"><button id="rs_up" aria-pressed="true">Monthly → quarterly (roll up)</button><button id="rs_dn" aria-pressed="false">Monthly → daily (go finer)</button></div>
+    <div id="rsout"></div>
+  </div>
+<pre><code>daily = monthly.asfreq("D")
+len(daily)              # 6544
+daily.isna().sum()      # 6328</code></pre>
+  <p>Almost every day is empty, because the data never recorded daily sales. A finer frequency cannot be invented from a coarser one without making assumptions, so <b>the frequency of the data limits the frequency of the forecast</b>.</p>
+
+  <h3>The future calendar</h3>
+  <p>For a 12-month horizon after January 2019, we need twelve new month-start dates: <code>pd.date_range(start=mobile_sales.index[-1], periods=13, freq="MS")[1:]</code> gives 12 steps from 2019-02-01 to 2020-01-01.</p>
+
+  <h3>Who uses the forecast?</h3>
+  <p>The right frequency and horizon depend on the person reading the forecast.</p>
+  <div class="tw"><table>
+    <tr><th>Team</th><th>Decision</th><th>Frequency needed</th><th>Horizon needed</th></tr>
+    <tr><td>Factory staffing</td><td>Shift rosters</td><td>Weekly</td><td>4 to 8 weeks</td></tr>
+    <tr><td>Component procurement</td><td>Order parts from suppliers</td><td>Monthly</td><td>3 to 4 months</td></tr>
+    <tr><td>Marketing campaigns</td><td>Plan festive season deals</td><td>Monthly</td><td>3 to 6 months</td></tr>
+    <tr><td>Finance and budgeting</td><td>Annual budget</td><td>Quarterly</td><td>4 quarters</td></tr>
+  </table></div>
+  <p>The table is an illustration to be challenged, not a fixed truth. If procurement argues for a longer horizon because suppliers have long lead times, that is a good argument and points at the real rule:</p>
+  <div class="callout"><b class="h">Rule</b>The horizon should be at least as long as the lead time of the decision that uses the forecast.</div>
+
+  <div class="card viz"><span class="tag">Visualizer · horizon vs lead time</span>
+    <div class="ctrl"><div><label for="h_lead">Lead time of the decision (months): <output id="oh"></output></label><input id="h_lead" type="range" min="1" max="12" value="3"></div></div>
+    <div class="btnrow"><button id="h_p">Procurement: up to 4</button><button id="h_m">Marketing: up to 6</button></div>
+    <div id="hcal" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:6px"></div>
+    <p id="hmsg" class="sub" aria-live="polite" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="card quiz" data-quiz='{"q":"MobiPlus procurement orders components three months ahead and works from monthly data. Which forecast setting best serves this team?","o":["A frequency of three months, with a horizon of one step ahead","Monthly frequency, with a horizon of three steps or more","Daily frequency, with a horizon of about ninety steps","Yearly frequency, with a horizon of three yearly steps"],"a":1,"e":"The data is monthly and the order is placed three months before it is needed, so the forecast must reach at least three monthly steps into the future. A frequency of three months means one value per quarter, which is coarser than the monthly data we have, and a one-step horizon would not reach three months ahead of monthly data (A). Daily values cannot be created from monthly data, as the resampling demo showed, so a daily setting is unavailable whatever the horizon (C). A yearly frequency would be too coarse to place orders month by month, and three yearly steps would reach three years ahead (D)."}'></div>
+</section>
+
+<!-- 8 PIPELINE -->
+<section id="pipeline">
+  <div class="kicker">8 · Putting it together</div>
+  <h2>One function that makes data forecast-ready</h2>
+  <p>Everything above can be written once and reused on any new monthly file. The order matters: <b>parse dates, set the index, check completeness, fill the gaps, then cap the anomalies.</b></p>
+  <div class="card viz"><span class="tag">Visualizer · pipeline stepper</span>
+    <div class="steps" role="tablist" aria-label="Pipeline steps" id="pst"></div>
+    <div class="stepbody" id="psb" aria-live="polite"></div>
+  </div>
+  <details><summary>Full function</summary><div class="dbody">
+<pre><code>def make_forecast_ready(path, freq="MS", lower_q=0.02, upper_q=0.98):
+    data = pd.read_csv(path, parse_dates=["DATE"]).set_index("DATE")
+
+    # completeness check
+    full_calendar = pd.date_range(data.index.min(), data.index.max(), freq=freq)
+    absent = full_calendar.difference(data.index)
+    assert len(absent) == 0, f"Absent dates: {list(absent)}"
+
+    # fill gaps first, then cap anomalies
+    series = data["Sales"].interpolate(method="linear")
+    series = series.clip(lower=series.quantile(lower_q), upper=series.quantile(upper_q))
+
+    # final validation
+    assert series.isna().sum() == 0
+    assert series.index.is_monotonic_increasing
+    return series</code></pre></div></details>
+<pre class="out"><code>Rows            : 217
+Missing values  : 0
+Same as our step-by-step result: True</code></pre>
+  <p>The function reproduces the step-by-step result exactly. Re-running it with the tighter 5th/95th percentiles changes <b>22</b> values relative to the 2nd/98th result, because every one of the 22 points that the 5/95 clip touches ends at a different value. This function is reused at the start of every later class.</p>
+
+  <h3>A data audit</h3>
+  <p>An <code>audit(series)</code> function returns a dictionary with the number of rows, first and last dates, the number of missing values and the list of calendar months that are absent.</p>
+  <details open><summary>Solution and output on the raw sheet</summary><div class="dbody">
+<pre><code>def audit(series, freq="MS"):
+    full_calendar = pd.date_range(series.index.min(), series.index.max(), freq=freq)
+    return {"rows": len(series),
+            "first": str(series.index.min().date()),
+            "last": str(series.index.max().date()),
+            "missing_values": int(series.isna().sum()),
+            "absent_months": list(full_calendar.difference(series.index).strftime("%Y-%m"))}</code></pre>
+<pre class="out"><code>{'rows': 217, 'first': '2001-01-01', 'last': '2019-01-01',
+ 'missing_values': 19, 'absent_months': []}</code></pre>
+  <p style="margin:0">217 rows, 19 missing values and no absent months. Running a function like this on every new file turns "I think the data is fine" into a checked statement.</p></div></details>
+</section>
+
+<!-- 9 PRACTICE -->
+<section id="practice">
+  <div class="kicker">Practice with an AI assistant</div>
+  <h2>Verify, do not trust</h2>
+  <p>AI assistants are fast at producing answers. The learner still has to hold the definitions and test the claims against evidence.</p>
+  <details><summary>Task 1 · Spot the time series</summary><div class="dbody">
+    <p>Prompt an assistant for 5 real-world datasets from 5 industries, each with 𝑡, 𝑦 and natural frequency, with exactly one that is <i>not</i> a time series. Decide for yourself which one with the two-part test: is there an ordered timestamp, and one quantity measured at each timestamp? Challenge any frequency that looks off. Then ask the AI which was not a time series and compare, and build a 3-row <code>pd.Series</code> with a monthly datetime index for a valid example.</p>
+    <p style="margin:0"><b>Reflect:</b> which part of the definition did the AI get wrong or leave vague, and how did the two-part test help?</p></div></details>
+  <details><summary>Task 2 · Ask an AI to pick the imputation</summary><div class="dbody">
+    <p>Describe the MobiPlus series (18 years, upward trend, yearly pattern, 19 scattered missing months, one 3-month gap) and ask which of mean, median, zero and linear interpolation it would choose, with pandas code. Compare its pick with the hide-and-recover scoreboard, run its code, and check unfamiliar arguments in the pandas documentation. If it suggests an untested method such as time-based interpolation, add it as a fifth entry to the <code>fills</code> dictionary and re-run the scoreboard.</p>
+    <p style="margin:0"><b>Reflect:</b> if the AI's favourite scored worse than linear interpolation, what does that say about trusting advice without a test?</p></div></details>
+  <details><summary>Task 3 · Interview the forecast consumers</summary><div class="dbody">
+    <p>Ask the assistant to act as the head of component procurement and answer: what horizon, how often refreshed, what error makes the forecast useless, and one question back that you have not thought of. Compare its horizon and refresh rate with the consumers table; decide which you trust more and why, remembering that the AI is guessing a typical stakeholder. Then add a row to the consumers table for a team of your own choice.</p>
+    <p style="margin:0"><b>Reflect:</b> which question would you ask the real procurement lead that the AI could not answer for you?</p></div></details>
+</section>
+
+<!-- RECAP -->
+<section id="recap">
+  <div class="kicker">Recap</div>
+  <h2>Key takeaways</h2>
+  <ol>
+    <li>A time series is an ordered timestamp plus one quantity. Forecasting predicts its next values from its own past, so rows can never be shuffled.</li>
+    <li>Forecast-ready data needs a datetime dtype and index, a completeness check, gaps filled by linear interpolation and anomalies capped with symmetric quantile cut-offs.</li>
+    <li>The mean, median and zero fills ignore the local level of the series; a hide-and-recover test is the honest way to compare fills.</li>
+    <li>Frequency and horizon are agreed with the people who use the forecast before any model is built, and the horizon should cover the lead time of their decision.</li>
+  </ol>
+  <h3>Common mistakes</h3>
+  <div class="grid2">
+    <div class="mini">Reading a CSV and forgetting to convert the date column from text to datetime.</div>
+    <div class="mini">Assuming the data is complete because the row count looks close to expected.</div>
+    <div class="mini">Dropping rows with missing values instead of filling them, which breaks equal spacing.</div>
+    <div class="mini">Filling gaps with one global number such as the mean or zero.</div>
+    <div class="mini">Clipping with very tight percentiles and flattening genuine peaks.</div>
+    <div class="mini">Shuffling a time series, or using a daily frequency on data only recorded monthly.</div>
+  </div>
+  <div class="callout" style="margin-top:22px"><b class="h">Closing the MobiPlus story</b>MobiPlus now has a clean, complete, equally spaced monthly series, and the team knows which decisions the forecast will feed and how far ahead each one looks. The series still carries a clear upward trend and a repeating yearly pattern. In Class 2 we take that series apart with moving averages, trend, seasonality and decomposition, and learn to spot the points where the trend changes direction.</div>
+</section>
+</main>
+
+<footer>Time Series &amp; Recommender System: Class 1 (Post-Read)</footer>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const NS="http://www.w3.org/2000/svg";
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+const fmt1=n=>n.toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});
+const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MISSING=['2002-03','2002-04','2002-05','2003-11','2005-10','2007-04','2009-03','2011-01','2011-06','2012-05','2013-02','2013-11','2014-08','2015-04','2015-09','2015-10','2016-07','2017-04','2017-08'];
+const missSet=new Set(MISSING);
+const idxOf=(y,m)=>(y-2001)*12+(m-1);
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+
+/* progress + nav */
+const prog=$("#prog"),links=$$(".topbar a"),secs=links.map(a=>$(a.getAttribute("href")));
+function onScroll(){
+  const h=document.documentElement;prog.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+"%";
+  let cur=-1;secs.forEach((s,i)=>{if(s.getBoundingClientRect().top<120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* issue map */
+(function(){
+  const W=820,H=120,pl=20,pr=20,x=i=>pl+i*(W-pl-pr)/216;
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Timeline Jan 2001 to Jan 2019 marking 19 months with no value, a near-zero month in Feb 2006 and a spike in Jul 2013"});
+  el("line",{x1:pl,x2:W-pr,y1:70,y2:70,stroke:"#B9A888","stroke-width":2},svg);
+  [2001,2005,2009,2013,2017].forEach(y=>{const xx=x(idxOf(y,1));el("line",{x1:xx,x2:xx,y1:70,y2:78,stroke:"#66573F"},svg);const t=el("text",{x:xx,y:96,"text-anchor":"middle","font-size":13,fill:"#66573F"},svg);t.textContent=y});
+  const t2=el("text",{x:x(216),y:96,"text-anchor":"middle","font-size":13,fill:"#66573F"},svg);t2.textContent="2019";
+  const cap=$("#issuecap");
+  function mark(e,txt){e.setAttribute("tabindex","0");e.addEventListener("mouseenter",()=>cap.textContent=txt);e.addEventListener("focus",()=>cap.textContent=txt);e.setAttribute("aria-label",txt)}
+  MISSING.forEach(s=>{const [y,m]=s.split("-").map(Number),xx=x(idxOf(y,m));
+    const r=el("rect",{x:xx-3,y:50,width:6,height:20,fill:"#D9792B",stroke:"#9C4509","stroke-width":1},svg);mark(r,`${MN[m-1]} ${y}: month exists but has no sales value`)});
+  const a1=x(idxOf(2006,2)),a2=x(idxOf(2013,7));
+  const d1=el("path",{d:`M${a1} 74 l-9 18 h18 z`,fill:"#8A3410"},svg);mark(d1,"Feb 2006: sales crash to 108");
+  const d2=el("path",{d:`M${a2} 14 l-9 18 h18 z`,fill:"#8A3410",transform:`rotate(180 ${a2} 23)`},svg);mark(d2,"Jul 2013: sales spike to 23,740");
+  const l1=el("text",{x:a1,y:114,"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#8A3410"},svg);l1.textContent="dip · 108";
+  const l2=el("text",{x:a2,y:12,"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#8A3410"},svg);l2.textContent="spike · 23,740";
+  $("#issuemap").appendChild(svg);
+  // legend
+  const lg=document.createElement("div");lg.className="legend";lg.innerHTML='<span><i class="sw empty"></i>month with no value (19)</span><span><span style="color:var(--rust);font-weight:700">▲▼</span>anomaly (2)</span>';$("#issuemap").appendChild(lg);
+  cap.textContent="Hover or focus a marker for details.";
+})();
+
+/* cost calc */
+(function(){
+  const ids=["miss","margin","hold","prod","scrap"],g=k=>+$("#c_"+k).value;
+  function upd(){
+    const miss=g("miss"),mg=g("margin"),h=g("hold"),p=g("prod"),s=g("scrap");
+    $("#o_miss").textContent=fmt(miss);$("#o_margin").textContent="$"+mg;$("#o_hold").textContent="$"+h;$("#o_prod").textContent="$"+p;$("#o_scrap").textContent=Math.round(s*100)+"%";
+    const over=miss*h+miss*s*p,under=miss*mg,mx=Math.max(over,under,1);
+    $("#costbars").innerHTML=
+     `<div class="bar"><span>Over-forecast</span><div class="track"><div class="fill" style="width:${over/mx*100}%;background:var(--orange)"></div></div><span class="v">$${fmt(over)}</span></div>
+      <div class="bar"><span>Under-forecast</span><div class="track"><div class="fill" style="width:${under/mx*100}%;background:var(--amber)"></div></div><span class="v">$${fmt(under)}</span></div>`;
+  }
+  ids.forEach(k=>$("#c_"+k).addEventListener("input",upd));upd();
+})();
+
+/* compare tabs */
+(function(){
+  const D={reg:{h:"Regression / classification",c:["A table of input features and one output column","The output for a new row of inputs","Other columns","Irrelevant, rows can be shuffled"],a:"Like estimating a house price from its size and location."},
+           fc:{h:"Forecasting",c:["One signal, ordered by time","The next values of the same signal","The signal's own past","Essential, shuffling destroys the meaning"],a:"Like predicting tomorrow's temperature from the last few days of temperature readings: there is no separate feature sheet, only the history of the signal itself."}};
+  function show(k){const d=D[k];$("#cmp_h").textContent=d.h;d.c.forEach((t,i)=>$("#cmp_"+(i+1)).textContent=t);$("#cmp_an").textContent=d.a;
+    $("#cmp_reg").setAttribute("aria-pressed",k==="reg");$("#cmp_fc").setAttribute("aria-pressed",k==="fc")}
+  $("#cmp_reg").onclick=()=>show("reg");$("#cmp_fc").onclick=()=>show("fc");show("reg");
+})();
+
+/* lag table */
+(function(){
+  let order=[1,2,3,4,5,6];
+  function draw(){
+    let h="<tr><th>Row</th><th>Month</th><th>Last month (x) = value in the row above</th><th>This month (y)</th><th>Pair valid?</th></tr>";let bad=0;
+    order.forEach((m,i)=>{const prev=i?order[i-1]:null;const ok=i===0?null:(prev===m-1);if(ok===false)bad++;
+      h+=`<tr><td>${i+1}</td><td>Month ${m}</td><td>${i?"y<sub>"+prev+"</sub>":"— (no earlier value)"}</td><td>y<sub>${m}</sub></td><td>${ok===null?"first row: no pair":ok?"✓ yes":"✗ no, not the previous month"}</td></tr>`});
+    $("#lagtab").innerHTML=h;
+    $("#lagmsg").textContent=bad?`${bad} of 5 pairs no longer link a month to the month before it. Shuffling destroys the meaning.`:"Every pair links a month to the month directly before it. The first row has no \"last month\" because the series starts there.";
+  }
+  $("#lag_shuf").onclick=()=>{order=[3,1,5,2,6,4];draw()};
+  $("#lag_reset").onclick=()=>{order=[1,2,3,4,5,6];draw()};draw();
+})();
+
+/* calendar grids */
+function buildGrid(root,cellFn,footer){
+  let h='<div class="hd"></div>'+MN.map(m=>`<div class="hd" aria-hidden="true">${m[0]}</div>`).join("");
+  for(let y=2001;y<=2019;y++){h+=`<div class="yr">${y}</div>`;
+    for(let m=1;m<=12;m++){if(y===2019&&m>1){h+='<div class="c blank"></div>';continue}
+      const c=cellFn(y,m);h+=`<div class="c ${c.cls}" title="${MN[m-1]} ${y}">${c.t||""}</div>`}}
+  if(footer)h+=footer;
+  root.innerHTML=h;
+}
+(function(){
+  const drop=$("#g_drop"),emp=$("#g_empty");
+  function draw(){
+    buildGrid($("#grid1"),(y,m)=>{
+      if(drop.checked&&y===2010&&(m===3||m===4))return{cls:"absent",t:"×"};
+      if(emp.checked&&missSet.has(`${y}-${String(m).padStart(2,"0")}`))return{cls:"empty"};
+      return{cls:""}});
+    const rows=drop.checked?215:217;
+    $("#g_out").innerHTML=`Expected rows: <b>217</b> · Rows in sheet: <b>${rows}</b> · Absent months: <b>${drop.checked?"2010-03, 2010-04":"none"}</b>`+(emp.checked?` · Empty values: <b>19</b> (rows still present)`:"");
+  }
+  drop.onchange=emp.onchange=draw;draw();
+})();
+(function(){
+  const cnt=Array(12).fill(0);MISSING.forEach(s=>cnt[+s.slice(5)-1]++);
+  const mx=Math.max(...cnt);
+  let f='<div class="yr" style="line-height:46px;font-size:10px">gaps</div>'+cnt.map(c=>`<div class="cnt" title="${c} gaps"><i class="${c===mx?"top":""}" style="height:${c/mx*100}%"></i></div>`).join("");
+  f+='<div></div>'+cnt.map(c=>`<div class="cn">${c}</div>`).join("");
+  buildGrid($("#grid2"),(y,m)=>missSet.has(`${y}-${String(m).padStart(2,"0")}`)?{cls:"empty"}:{cls:""},f);
+})();
+
+/* gap spacing */
+(function(){
+  const miss=Array(217).fill(false);MISSING.forEach(s=>{const[y,m]=s.split("-").map(Number);miss[idxOf(y,m)]=true});
+  const keep=[];miss.forEach((v,i)=>{if(!v)keep.push(i)});
+  const c={};for(let i=1;i<keep.length;i++){const d=keep[i]-keep[i-1];c[d]=(c[d]||0)+1}
+  const ks=Object.keys(c).map(Number).sort((a,b)=>a-b),mx=Math.max(...Object.values(c));
+  $("#gapbars").innerHTML=ks.map(k=>`<div class="bar"><span>${k} month${k>1?"s":""} apart${k===1?" (normal)":""}</span><div class="track"><div class="fill" style="width:${Math.max(c[k]/mx*100,2)}%;background:${k===1?"var(--amber)":"var(--orange)"}"></div></div><span class="v">${c[k]}×</span></div>`).join("");
+})();
+
+/* fill explorer */
+(function(){
+  const MEAN=10854.2,W=700,H=300,pl=54,pr=110,pt=16,pb=34;
+  const A=$("#f_a"),B=$("#f_b"),G=$("#f_g");
+  function draw(){
+    const a=+A.value,b=+B.value,g=+G.value;
+    $("#of_a").textContent=fmt(a);$("#of_b").textContent=fmt(b);$("#of_g").textContent=g;
+    const n=g+2,x=i=>pl+i*(W-pl-pr)/(n-1),ymax=12000,y=v=>pt+(1-v/ymax)*(H-pt-pb);
+    const lin=k=>a+(b-a)*k/(g+1);
+    const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Chart comparing mean, zero and linear fills across a gap"});
+    [0,4000,8000,12000].forEach(v=>{el("line",{x1:pl,x2:W-pr,y1:y(v),y2:y(v),stroke:"#D6C7A9"},svg);const t=el("text",{x:pl-8,y:y(v)+4,"text-anchor":"end","font-size":12,fill:"#66573F"},svg);t.textContent=fmt(v)});
+    const series=[
+      {n:"Linear",c:"#B8530F",v:k=>lin(k),shape:"c",dash:""},
+      {n:"Mean",c:"#C98A1E",v:()=>MEAN,shape:"s",dash:"6 4"},
+      {n:"Zero",c:"#5B4330",v:()=>0,shape:"t",dash:"2 4"}];
+    series.forEach(s=>{
+      let d="";for(let i=0;i<n;i++){const v=(i===0)?a:(i===n-1?b:s.v(i));d+=(i?"L":"M")+x(i)+" "+y(v)}
+      el("path",{d,fill:"none",stroke:s.c,"stroke-width":2.5,"stroke-dasharray":s.dash},svg);
+      for(let i=1;i<n-1;i++){const cx=x(i),cy=y(s.v(i));
+        if(s.shape==="c")el("circle",{cx,cy,r:6,fill:s.c},svg);
+        else if(s.shape==="s")el("rect",{x:cx-5.5,y:cy-5.5,width:11,height:11,fill:s.c},svg);
+        else el("path",{d:`M${cx} ${cy-7} l7 12 h-14 z`,fill:s.c},svg)}
+      const t=el("text",{x:x(n-1)+14,y:y(s.v(Math.max(1,n-2)))+(s.n==="Linear"?-2:4),"font-size":13,"font-weight":700,fill:s.c},svg);t.textContent=s.n});
+    [[0,a],[n-1,b]].forEach(([i,v])=>{el("circle",{cx:x(i),cy:y(v),r:8,fill:"#FFFBF1",stroke:"#33291E","stroke-width":3},svg)});
+    const t1=el("text",{x:x(0),y:H-10,"text-anchor":"middle","font-size":12,fill:"#66573F"},svg);t1.textContent="last known";
+    const t2=el("text",{x:x(n-1),y:H-10,"text-anchor":"middle","font-size":12,fill:"#66573F"},svg);t2.textContent="first known";
+    $("#fillsvg").replaceChildren(svg);
+    let h="<tr><th>Gap month</th><th class=\"num\">Linear</th><th class=\"num\">Mean</th><th class=\"num\">Zero</th></tr>";
+    for(let k=1;k<=g;k++)h+=`<tr><td>${k} of ${g}</td><td class="num">${fmt(lin(k))}</td><td class="num">${fmt1(MEAN)}</td><td class="num">0</td></tr>`;
+    $("#filltab").innerHTML=h;
+    const hi=Math.max(a,b);
+    $("#fillmsg").textContent=`The mean fill sits ${fmt(MEAN-hi)} above the higher neighbour, then falls back: an artificial spike. Linear interpolation moves smoothly from one neighbour to the other${g===1?" (for a single month it is exactly the average of the two neighbours)":""}. Zero implies the company sold nothing.`;
+  }
+  [A,B,G].forEach(i=>i.addEventListener("input",draw));draw();
+})();
+
+/* ranking */
+(function(){
+  const R=[["1","Linear interpolation","Lowest average miss; roughly half the miss of the mean and median.","var(--orange-btn)","#fff"],
+           ["2","Mean and median (tied)","About twice the miss of linear interpolation; the two are close to each other.","var(--amber)","var(--ink)"],
+           ["3","Zero","By far the worst.","var(--sand)","var(--ink)"]];
+  $("#rank").innerHTML=R.map(r=>`<li style="display:flex;gap:12px;align-items:center;margin:8px 0"><span style="flex:none;width:34px;height:34px;border-radius:50%;background:${r[3]};color:${r[4]};border:2px solid var(--rust);display:grid;place-items:center;font-weight:700">${r[0]}</span><span><b>${r[1]}</b><br><span class="sub" style="margin:0">${r[2]}</span></span></li>`).join("");
+})();
+
+/* quantile explorer */
+(function(){
+  const PTS=[[108,"2006-02"],[4670,"2001-02"],[5892,"2003-02"],[16304,"2017-12"],[16921,"2018-12"],[23740,"2013-07"]];
+  const RULES={p5:{lo:6650.2,hi:15119.8,n:"5th / 95th percentile",c:"Points changed in the full series: 22. The two anomalies are gone, but many of the changed points are genuine early lows and late highs, so some important values are clipped as well."},
+               p2:{lo:6082.6,hi:15692.5,n:"2nd / 98th percentile",c:"Points changed in the full series: 10 — the two real anomalies (Feb 2006, Jul 2013) plus eight genuine extremes at the very start and end of the history."},
+               hand:{lo:5000,hi:20000,n:"Hand-picked",c:"Works here because the histogram has a clear gap; with a more continuous histogram there would be no obvious place to cut."}};
+  const W=720,H=150,pl=20,pr=20,X=v=>pl+v/25000*(W-pl-pr);
+  let cur="p5";
+  function draw(){
+    const r=RULES[cur];
+    const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Number line from 0 to 25,000 with the cut-offs and the six extreme months"});
+    el("rect",{x:X(0),y:50,width:X(r.lo)-X(0),height:40,fill:"#F5DDBD"},svg);
+    el("rect",{x:X(r.hi),y:50,width:X(25000)-X(r.hi),height:40,fill:"#F5DDBD"},svg);
+    el("line",{x1:X(0),x2:X(25000),y1:70,y2:70,stroke:"#66573F","stroke-width":2},svg);
+    [0,5000,10000,15000,20000,25000].forEach(v=>{el("line",{x1:X(v),x2:X(v),y1:70,y2:76,stroke:"#66573F"},svg);const t=el("text",{x:X(v),y:112,"text-anchor":"middle","font-size":12,fill:"#66573F"},svg);t.textContent=fmt(v)});
+    [[r.lo,"lower"],[r.hi,"upper"]].forEach(([v,nm])=>{el("line",{x1:X(v),x2:X(v),y1:40,y2:100,stroke:"#8A3410","stroke-width":2.5,"stroke-dasharray":"5 3"},svg);
+      const t=el("text",{x:X(v),y:34,"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#8A3410"},svg);t.textContent=nm+" "+fmt1(v)});
+    PTS.forEach(([v,d],i)=>{const clipped=v<r.lo||v>r.hi,cy=70+((i%2)?12:-12)*(i>2?1:0);
+      el("circle",{cx:X(v),cy:70,r:9,fill:clipped?"#8A3410":"#FFFBF1",stroke:"#33291E","stroke-width":2,transform:i===3?`translate(0 -0)`:""},svg);
+      const t=el("text",{x:X(v),y:74,"text-anchor":"middle","font-size":11,"font-weight":700,fill:clipped?"#fff":"#33291E"},svg);t.textContent=i+1});
+    $("#qsvg").replaceChildren(svg);
+    let h="<tr><th>#</th><th>Month</th><th class=\"num\">Before</th><th class=\"num\">After clipping</th><th>Status</th></tr>";
+    PTS.forEach(([v,d],i)=>{const a=Math.min(Math.max(v,r.lo),r.hi),ch=a!==v;
+      h+=`<tr${ch?' class="hl"':""}><td>${i+1}</td><td>${d}</td><td class="num">${fmt(v)}</td><td class="num">${fmt1(a)}</td><td>${ch?"clipped":"unchanged"}</td></tr>`});
+    $("#qtab").innerHTML=h;
+    $("#qmsg").innerHTML=`<b>${r.n}</b>: lower ${fmt1(r.lo)}, upper ${fmt1(r.hi)}. ${r.c}`;
+    $$("[data-q]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.q===cur));
+  }
+  $$("[data-q]").forEach(b=>b.onclick=()=>{cur=b.dataset.q;draw()});draw();
+})();
+/* month row */
+(function(){
+  const dip=[0,1],peak=[9,10,11];
+  $("#mrow").innerHTML=MN.map((m,i)=>`<div class="${dip.includes(i)?"dip":peak.includes(i)?"peak":""}">${m}</div>`).join("");
+})();
+
+/* alias explorer */
+(function(){
+  const D={D:["2019-02-01","2019-02-02","2019-02-03"],W:["2019-02-03","2019-02-10","2019-02-17"],MS:["2019-02-01","2019-03-01","2019-04-01"]};
+  function show(k){$("#alout").innerHTML=D[k].map(d=>`<span class="mini" style="font-family:var(--mono);padding:8px 12px">${d}</span>`).join("");$$("[data-al]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.al===k))}
+  $$("[data-al]").forEach(b=>b.onclick=()=>show(b.dataset.al));show("MS");
+})();
+
+/* resample */
+(function(){
+  function up(){
+    $("#rsout").innerHTML=`<p class="sub">Three monthly values sum into one quarterly value. Coarser data can always be built from finer data.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${["Jan","Feb","Mar"].map(m=>`<span class="mini" style="padding:8px 14px">${m}</span>`).join('<b>+</b>')}<b>=</b><span class="mini" style="padding:8px 14px;background:var(--orange-btn);color:#fff;border-color:var(--rust)">Q1 total</span></div>
+    <p class="sub" style="margin-top:10px">Monthly → yearly works the same way, summing 12 months.</p>`;
+    $("#rs_up").setAttribute("aria-pressed",true);$("#rs_dn").setAttribute("aria-pressed",false)}
+  function dn(){
+    const tot=6544,emp=6328,filled=tot-emp;
+    $("#rsout").innerHTML=`<p class="sub"><code>monthly.asfreq("D")</code> asks for a value on every day.</p>
+    <div class="bar"><span>Daily rows</span><div class="track" style="display:flex"><div style="width:${emp/tot*100}%;background:repeating-linear-gradient(45deg,var(--orange-2) 0 3px,var(--tint) 3px 6px)"></div><div style="width:${filled/tot*100}%;background:var(--brown)"></div></div><span class="v">${fmt(tot)}</span></div>
+    <div class="legend"><span><i class="sw empty"></i>no value: ${fmt(emp)} (${(emp/tot*100).toFixed(1)}%)</span><span><i class="sw" style="background:var(--brown)"></i>has a value: ${filled}</span></div>
+    <p class="sub" style="margin:0">The data never recorded daily sales, so daily values cannot be invented without making assumptions.</p>`;
+    $("#rs_up").setAttribute("aria-pressed",false);$("#rs_dn").setAttribute("aria-pressed",true)}
+  $("#rs_up").onclick=up;$("#rs_dn").onclick=dn;up();
+})();
+
+/* horizon calendar */
+(function(){
+  const L=$("#h_lead"),MS=["Feb 2019","Mar 2019","Apr 2019","May 2019","Jun 2019","Jul 2019","Aug 2019","Sep 2019","Oct 2019","Nov 2019","Dec 2019","Jan 2020"];
+  function draw(){
+    const n=+L.value;$("#oh").textContent=n;
+    let h='<div class="mini" style="text-align:center;padding:8px 4px;background:var(--brown);color:#fff;font-size:13px"><b style="color:#fff">Jan 2019</b>last data</div>';
+    MS.forEach((m,i)=>{const on=i<n;h+=`<div class="mini" style="text-align:center;padding:8px 4px;font-size:13px;${on?"background:var(--orange-btn);color:#fff;border-color:var(--rust)":"border-style:dashed"}"><b style="${on?"color:#fff":""}">${m}</b>step ${i+1}${on?" ✓":""}</div>`});
+    $("#hcal").innerHTML=h;
+    $("#hmsg").innerHTML=`A decision with a lead time of <b>${n}</b> month${n>1?"s":""} needs a forecast reaching at least <b>${n}</b> monthly step${n>1?"s":""} ahead (up to ${MS[n-1]}). The horizon should be at least as long as the lead time.`;
+  }
+  L.addEventListener("input",draw);$("#h_p").onclick=()=>{L.value=4;draw()};$("#h_m").onclick=()=>{L.value=6;draw()};draw();
+})();
+
+/* pipeline stepper */
+(function(){
+  const S=[
+   {t:"1 · Parse & index",d:"Read the file with the date column as datetime and make it the index, so slicing, resampling and plotting work.",c:'data = pd.read_csv(path, parse_dates=["DATE"]).set_index("DATE")',g:"Dates left as text; the default 0, 1, 2 index."},
+   {t:"2 · Completeness",d:"Build the full month-start calendar and confirm no month is absent. The function stops with the list of absent dates if there is any.",c:'full_calendar = pd.date_range(data.index.min(), data.index.max(), freq=freq)\nabsent = full_calendar.difference(data.index)\nassert len(absent) == 0, f"Absent dates: {list(absent)}"',g:"Unequal spacing that the model cannot see."},
+   {t:"3 · Fill gaps",d:"Fill empty values by linear interpolation, using each gap's own neighbours. Gaps come first so the percentile cut-offs are computed on a complete series.",c:'series = data["Sales"].interpolate(method="linear")',g:"Global mean or zero fills that create jumps; dropping rows."},
+   {t:"4 · Cap anomalies",d:"Clip at symmetric quantiles (default 2nd and 98th), a trade-off between catching anomalies and protecting genuine extremes.",c:'series = series.clip(lower=series.quantile(lower_q), upper=series.quantile(upper_q))',g:"Wrong entries and one-time events biasing the model."},
+   {t:"5 · Validate",d:"Final checks: no missing values and a time-ordered index.",c:'assert series.isna().sum() == 0\nassert series.index.is_monotonic_increasing',g:"Silent failures reaching the model."}];
+  const bar=$("#pst"),body=$("#psb");
+  S.forEach((s,i)=>{const b=document.createElement("button");b.textContent=s.t;b.setAttribute("role","tab");b.onclick=()=>show(i);bar.appendChild(b)});
+  function show(i){const s=S[i];$$("button",bar).forEach((b,j)=>{b.setAttribute("aria-pressed",j===i);b.setAttribute("aria-selected",j===i)});
+    body.innerHTML=`<p><b>${s.t}.</b> ${s.d}</p><pre><code></code></pre><p style="margin:0"><b>Guards against:</b> ${s.g}</p>`;$("code",body).textContent=s.c}
+  show(0);
+})();
+
+/* quizzes */
+$$(".quiz").forEach(box=>{
+  const d=JSON.parse(box.dataset.quiz);let done=false;
+  box.innerHTML=`<div class="ct" style="color:var(--rust);font-size:13px;letter-spacing:.1em;text-transform:uppercase">Check your understanding</div><div class="q"></div><div class="os"></div><div class="fb" role="status"></div>`;
+  $(".q",box).textContent=d.q;
+  d.o.forEach((t,i)=>{const b=document.createElement("button");b.className="opt";b.type="button";b.innerHTML="<b>"+"ABCD"[i]+".</b> ";b.appendChild(document.createTextNode(t));
+    b.onclick=()=>{if(done&&i!==d.a)return;
+      const ok=i===d.a;
+      if(ok){done=true;b.classList.add("right");$$(".opt",box).forEach(x=>x.disabled=true);$(".fb",box).innerHTML="<b>Correct.</b> ";}
+      else{b.classList.add("wrong");b.disabled=true;$(".fb",box).innerHTML="<b>Not quite — try another option.</b> ";}
+      if(ok){$(".fb",box).appendChild(document.createTextNode(d.e))}
+      $(".fb",box).classList.add("show")};
+    $(".os",box).appendChild(b)});
+});
+})();
+</script>
+</body>
+</html>
